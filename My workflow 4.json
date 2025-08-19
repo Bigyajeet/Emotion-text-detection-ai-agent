@@ -1,0 +1,191 @@
+{
+  "name": "My workflow 4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "studentchat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -496,
+        -32
+      ],
+      "id": "4379cde5-781e-4503-a34b-282e6a572dc0",
+      "name": "Webhook",
+      "webhookId": "1fd73c28-cfaf-495a-acf5-00def51e964c"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"name\": \"={{$json.body.name}}\",\n  \"message\": \"={{$json.body.message}}\"\n}\n",
+        "options": {
+          "responseCode": null
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -288,
+        -32
+      ],
+      "id": "74418d6c-691d-4667-96ce-b95b4549e0d2",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8299f2d7-88c8-4e4b-b463-73ceee626305",
+              "name": "text",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "ecac7a0a-d02a-45fd-a68b-ada479dc0ff6",
+              "name": "name",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -80,
+        -32
+      ],
+      "id": "15674bc3-73d2-491a-aee9-8aea55c44cd1",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"inputs\": \"{{ $json.text }}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        -32
+      ],
+      "id": "cce3cbed-1422-4352-9946-e7ee2ecd076a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"top_emotion\": \"={{ $json.top_emotion }}\",\n  \"confidence\": \"={{ $json.confidence }}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        544,
+        -32
+      ],
+      "id": "ab83b11d-084b-4c0c-81c6-3924ab896b28",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all inputs from previous node (HTTP Request)\nconst inputs = $input.all();\n\n// Hugging Face usually returns one item whose json is an array of {label, score}\nlet data = inputs[0]?.json;\n\n// Normalize shapes: [], or [[]], or single object\nif (Array.isArray(data) && Array.isArray(data[0])) data = data[0];\nif (!Array.isArray(data)) data = [data];\n\n// Safety: empty fallback\nif (!data.length) {\n  return [{ json: { top_emotion: 'unknown', confidence: 0, emotions: [] } }];\n}\n\n// Pick highest score\nconst top = data.reduce((best, cur) => (cur.score > best.score ? cur : best), data[0]);\n\n// Output clean payload\nreturn [{\n  json: {\n    top_emotion: top.label,\n    confidence: top.score,\n    emotions: data   // keep full list (optional)\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        -32
+      ],
+      "id": "fd2bdae3-5fc2-4939-834f-0b173c7e13b3",
+      "name": "Code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "651efa21-ba75-4ca6-be3b-df941e46396f",
+  "meta": {
+    "instanceId": "23b4056e104eeba9ec5a239bb6e4783dc6ce4a05cabbcd3461134697af708e4a"
+  },
+  "id": "MpjHK4UG4B9ogew6",
+  "tags": []
+}
